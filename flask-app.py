@@ -1,34 +1,56 @@
-from PIL import Image
-import io
+import os
+from flask import Flask, request, redirect, url_for, send_from_directory, render_template
+from keras.preprocessing.image import ImageDataGenerator, load_img, img_to_array
+from tensorflow.keras.models import Sequential, load_model
+from werkzeug.utils import secure_filename
 import numpy as np
-from flask import Flask, request, jsonify
-from keras.models import load_model
 
 
-app = Flask(__name__)
+ALLOWED_EXTENSIONS = set(['jpg', 'jpeg', 'png'])
+IMAGE_SIZE = (---,--- )  ## Based on the file size
+UPLOAD_FOLDER = 'uploads'
+vgg16 = load_model('covid_vgg.h5')  ## Upload the saved model
 
-# Define the predict function
-model = load_model('covid_vgg.h5')
-@app.route('/predict', methods=['POST'])
-def predict():
-    # Get the image data from the HTTP request
-    image_data = request.files['image'].read()
 
-    # Create PIL image object from bytes data
-    img = Image.open(io.BytesIO(image_data))
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
 
-    # Preprocess the image data as necessary
-    img = img.resize((224, 224))
-    img_array = np.array(img)
-    img_array = img_array.astype('float32')
-    img_array /= 255.0
-    img_array = np.expand_dims(img_array, axis=0)
 
-    # Run the image data through your ML model
-    predictions = model.predict(img_array)
+def predict(file):
+    img  = load_img(file, target_size=IMAGE_SIZE)
+    img = img_to_array(img)/255.0
+    img = np.expand_dims(img, axis=0)
+    probs = vgg16.predict(img)[0]
+    output = {'Negative:': probs[0], 'Positive': probs[1]}
+    return output
 
-    # Return the model's predictions as JSON
-    return jsonify(predictions.tolist())
+app = Flask(__name__, template_folder='Templates')  ## To upload files to folder
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-if __name__ == '__main__':
-    app.run(debug=True)
+
+@app.route("/")
+def template_test():
+    return render_template('home.html', label='', imagesource='file://null')  ## Routing url
+
+
+@app.route('/', methods=['GET', 'POST'])  ## Main post and get methods for calling and getting a response from the server
+def upload_file(): 
+    if request.method == 'POST':
+        file = request.files['file']
+        
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            output = predict(file_path)
+    return render_template("home.html", label=output, imagesource=file_path)
+
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'],
+                               filename)
+
+if __name__ == "__main__":
+    app.run(threaded=False)
