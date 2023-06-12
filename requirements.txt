@@ -1,3 +1,5 @@
+pillow
 keras
-Flask
+keras_preprocessing
+flask
 tensorflow
