@@ -29,6 +29,8 @@ def predict():
 
     # Return the model's predictions as JSON
     return jsonify(predictions.tolist())
-
+@app.route("/about")
+def about_page():
+    return "Please subscribe  Artificial Intelligence Hub..!!!"
 if __name__ == '__main__':
     app.run(debug=True)
