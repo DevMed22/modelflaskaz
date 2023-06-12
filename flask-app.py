@@ -8,7 +8,7 @@ from keras.models import load_model
 app = Flask(__name__)
 
 # Define the predict function
-model = load_model('mci-resnet.h5')
+model = load_model('covid_vgg.h5')
 @app.route('/predict', methods=['POST'])
 def predict():
     # Get the image data from the HTTP request
